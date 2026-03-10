@@ -1,6 +1,7 @@
 import logging
 import typer
 import sys
+import requests
 from enum import Enum
 from pathlib import Path
 from typing import List, Optional
@@ -93,6 +94,7 @@ def main(
     broker_name: Optional[str] = typer.Option(None, "--broker", help="Broker name (e.g., 'schwab') from config.toml to use for this run."),
     override_configs: List[str] = typer.Option(None, "--set", help="Override configuration settings using path.to.key=value format. Can be used multiple times."),
     kursliste_dir: Optional[Path] = typer.Option(None, "--kursliste-dir", help="Directory containing Kursliste XML files for exchange rate information. Defaults to 'data/kursliste' in CWD or XDG data home."),
+    online_kursliste: bool = typer.Option(False, "--online-kursliste",  help="Fetch security data from ICTax online API instead of local Kursliste files. Requires internet access.",),
     org_nr: Optional[str] = typer.Option(None, "--org-nr", help="Override the organization number used in barcodes (5-digit number)"),
     payment_reconciliation: bool = typer.Option(True, "--payment-reconciliation/--no-payment-reconciliation", help="Run optional payment reconciliation between Kursliste and broker evidence."),
     pre_amble: Optional[List[Path]] = typer.Option(None, "--pre-amble", help="List of PDF documents to add before the main steuerauszug."),
@@ -417,15 +419,24 @@ def main(
                     print(f"Warning: Kursliste directory {effective_kursliste_dir} does not exist")
                 kursliste_manager = KurslisteManager()
                 kursliste_manager.load_directory(effective_kursliste_dir)
-                
+
                 # Verify that Kursliste data exists for the required tax year
                 required_tax_year = parsed_period_to.year
                 kursliste_manager.ensure_year_available(required_tax_year, effective_kursliste_dir)
-                
-                exchange_rate_provider = KurslisteExchangeRateProvider(kursliste_manager)
             except Exception as e:
                 raise ValueError(f"Failed to initialize KurslisteExchangeRateProvider with directory {effective_kursliste_dir}: {e}")
-            
+
+            if online_kursliste:
+                print("Using KurslisteExchangeRateProvider with ICTax online API")
+                try:
+                    session = requests.Session()
+                    kursliste_manager.create_online_accessor(required_tax_year, session)
+                    logger.info(f"OnlineKurslisteAccessor created for tax year {required_tax_year}")
+                except Exception as e:
+                    raise ValueError(f"Failed to initialize online Kursliste mode: {e}")
+
+            exchange_rate_provider = KurslisteExchangeRateProvider(kursliste_manager)
+
             tax_value_calculator: Optional[MinimalTaxValueCalculator] = None
             calculator_name = ""
 
@@ -478,15 +489,24 @@ def main(
                     effective_kursliste_dir.mkdir(parents=True, exist_ok=True)
                 kursliste_manager_verify = KurslisteManager()
                 kursliste_manager_verify.load_directory(effective_kursliste_dir)
-                
+
                 # Verify that Kursliste data exists for the required tax year
                 required_tax_year_verify = statement.taxPeriod if statement.taxPeriod else parsed_period_to.year
                 kursliste_manager_verify.ensure_year_available(required_tax_year_verify, effective_kursliste_dir)
-                
-                exchange_rate_provider_verify = KurslisteExchangeRateProvider(kursliste_manager_verify)
             except Exception as e:
                 raise ValueError(f"Failed to initialize KurslisteExchangeRateProvider for verification with directory {effective_kursliste_dir}: {e}")
-            
+
+            if online_kursliste:
+                print("Using KurslisteExchangeRateProvider with ICTax online API for verification")
+                try:
+                    session = requests.Session()
+                    kursliste_manager_verify.create_online_accessor(required_tax_year_verify, session)
+                    logger.info(f"OnlineKurslisteAccessor created for verification, tax year {required_tax_year_verify}")
+                except Exception as e:
+                    raise ValueError(f"Failed to initialize online Kursliste mode for verification: {e}")
+
+            exchange_rate_provider_verify = KurslisteExchangeRateProvider(kursliste_manager_verify)
+
             tax_value_verifier: Optional[MinimalTaxValueCalculator] = None
             verifier_name = ""
 

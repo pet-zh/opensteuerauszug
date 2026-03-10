@@ -9,6 +9,7 @@ import os
 import re # For parsing year from filename
 import datetime
 import xml.etree.ElementTree as ET
+import requests
 from decimal import Decimal
 from pathlib import Path
 from typing import Dict, List, Optional, Union # Union will be removed from self.kurslisten type
@@ -218,6 +219,32 @@ class KurslisteManager:
         """
         return sorted(self.kurslisten.keys())
     
+
+    def create_online_accessor(
+        self, tax_year: int, session: Optional[requests.Session] = None
+    ):
+        """
+        Create an OnlineKurslisteAccessor for the given year.
+
+        If a local accessor (XML/SQLite) already exists for the year, it will be
+        used as a fallback for DA-1 rates and sign data (not available via API).
+
+        Args:
+            tax_year: The tax year
+            session: Optional requests.Session to reuse (with CSRF token, etc.)
+
+        Returns:
+            OnlineKurslisteAccessor instance (duck-typed as KurslisteAccessor)
+        """
+        from .kursliste_online_accessor import OnlineKurslisteAccessor
+
+        # Use existing local accessor as fallback for DA-1 rates and sign data
+        fallback_accessor = self.kurslisten.get(tax_year)
+        accessor = OnlineKurslisteAccessor(tax_year, session, fallback_accessor)
+        # IMPORTANT: Store the accessor so it can be retrieved later by get_kurslisten_for_year()
+        self.kurslisten[tax_year] = accessor
+        return accessor
+
     def ensure_year_available(self, required_year: int, kursliste_dir: Optional[Path] = None) -> None:
         """
         Validate that Kursliste data is available for the required year.

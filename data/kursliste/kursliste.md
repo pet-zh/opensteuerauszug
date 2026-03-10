@@ -54,6 +54,10 @@ A utility script is provided to convert XML Kurslisten to the SQLite format. Thi
 
 ## Obtaining the Kursliste
 
+### Online Mode (Experimental)
+
+Alternatively, you can use the **Online Kursliste Mode** to fetch data on-the-fly from the ICTax website without maintaining local files. Simply use the `--online-kursliste` flag when generating your Steuerauszug. See the [User Guide](../../docs/user_guide.md) for more details.
+
 ### Automated Download (Recommended)
 
 You can automatically download the latest Kursliste for a given year using:

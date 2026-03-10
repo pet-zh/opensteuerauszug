@@ -122,6 +122,25 @@ The **Kursliste** is an official list published annually by the Swiss Federal Ta
 
 You need the official Kursliste XML file for the relevant tax year.
 
+#### Online Kursliste Mode (Experimental)
+
+OpenSteuerAuszug can fetch Kursliste data on-the-fly from the ICTax website instead of requiring you to maintain local files. This is useful if you prefer not to download and manage local copies of the Kursliste.
+
+To use this feature, simply add the `--online-kursliste` flag when generating your Steuerauszug:
+
+```bash
+opensteuerauszug input.xml --importer ibkr --online-kursliste
+```
+
+**Important Notes:**
+- This feature requires an internet connection to access the ICTax website.
+- Security data is cached per session to reduce API calls.
+- The online mode is currently marked as experimental and may have limitations compared to the local file-based approach.
+
+**Troubleshooting:**
+- If you see warnings about missing exchange rates, check the debug log with `--log-level DEBUG`
+- If you encounter API errors, try using the file-based mode instead.
+
 #### Automated Download and Conversion (Recommended)
 
 OpenSteuerAuszug can automatically download, prepare, and convert the latest Kursliste for you. This is the simplest method.
